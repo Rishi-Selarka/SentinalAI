@@ -8,14 +8,16 @@ export async function runGenerator(opts: {
   revisionBrief?: string;
   iteration: number;
   emit: EmitFn;
+  fast?: boolean;
 }): Promise<string> {
-  const { prompt, domain, revisionBrief, iteration, emit } = opts;
+  const { prompt, domain, revisionBrief, iteration, emit, fast } = opts;
   emit({ type: "agent:start", agent: "generator", iteration });
 
   let full = "";
   try {
     for await (const delta of streamChat({
       agent: "generator",
+      fast,
       temperature: 0.5,
       maxTokens: 1800,
       messages: [

@@ -18,8 +18,9 @@ export async function runStandardsVerifier(opts: {
   domain: Domain;
   iteration: number;
   emit: EmitFn;
+  fast?: boolean;
 }): Promise<JurorVerdict> {
-  const { prompt, answer, domain, iteration, emit } = opts;
+  const { prompt, answer, domain, iteration, emit, fast } = opts;
   emit({ type: "agent:start", agent: "standards", iteration });
 
   const corpus = corpusBlock(domain);
@@ -29,6 +30,7 @@ export async function runStandardsVerifier(opts: {
   try {
     for await (const delta of streamChat({
       agent: "standards",
+      fast,
       temperature: 0.1,
       maxTokens: 800,
       messages: [

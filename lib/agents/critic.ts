@@ -17,8 +17,9 @@ export async function runCritic(opts: {
   domain: Domain;
   iteration: number;
   emit: EmitFn;
+  fast?: boolean;
 }): Promise<JurorVerdict> {
-  const { prompt, answer, domain, iteration, emit } = opts;
+  const { prompt, answer, domain, iteration, emit, fast } = opts;
   emit({ type: "agent:start", agent: "critic", iteration });
 
   const userMsg = `User question:\n${prompt}\n\nGenerator's answer:\n${answer}\n\nReturn JSON only.`;
@@ -27,6 +28,7 @@ export async function runCritic(opts: {
   try {
     for await (const delta of streamChat({
       agent: "critic",
+      fast,
       temperature: 0.2,
       maxTokens: 800,
       messages: [

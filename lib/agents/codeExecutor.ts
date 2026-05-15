@@ -18,8 +18,9 @@ export async function runCodeExecutor(opts: {
   domain: Domain;
   iteration: number;
   emit: EmitFn;
+  fast?: boolean;
 }): Promise<JurorVerdict> {
-  const { prompt, answer, domain, iteration, emit } = opts;
+  const { prompt, answer, domain, iteration, emit, fast } = opts;
   emit({ type: "agent:start", agent: "codeExecutor", iteration });
 
   const code = extractAnyPython(answer);
@@ -63,6 +64,7 @@ export async function runCodeExecutor(opts: {
   try {
     for await (const delta of streamChat({
       agent: "codeExecutor",
+      fast,
       temperature: 0.1,
       maxTokens: 800,
       messages: [

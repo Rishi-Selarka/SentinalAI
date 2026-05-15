@@ -55,8 +55,9 @@ export async function runMathVerifier(opts: {
   domain: Domain;
   iteration: number;
   emit: EmitFn;
+  fast?: boolean;
 }): Promise<JurorVerdict> {
-  const { prompt, answer, domain, iteration, emit } = opts;
+  const { prompt, answer, domain, iteration, emit, fast } = opts;
   emit({ type: "agent:start", agent: "math", iteration });
 
   const mathjsEvidence = tryMathJs(answer);
@@ -95,6 +96,7 @@ export async function runMathVerifier(opts: {
   try {
     for await (const delta of streamChat({
       agent: "math",
+      fast,
       temperature: 0.1,
       maxTokens: 800,
       messages: [

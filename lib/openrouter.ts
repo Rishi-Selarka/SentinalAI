@@ -21,6 +21,25 @@ export const MODELS = {
   aggregator: "openai/gpt-4o-mini",
 } as const satisfies Record<AgentId, string>;
 
+// Low-latency model set used when `fast: true` is passed (the repo
+// analyzer reviews many files sequentially, so speed matters more than
+// the deepest possible reasoning). Web-search fact-checking is swapped
+// for a quick reasoner since it adds little to per-file code review.
+export const FAST_MODELS = {
+  generator: "anthropic/claude-haiku-4.5",
+  critic: "openai/gpt-4o-mini",
+  factChecker: "openai/gpt-4o-mini",
+  codeExecutor: "deepseek/deepseek-chat",
+  math: "deepseek/deepseek-chat",
+  standards: "anthropic/claude-haiku-4.5",
+  aggregator: "openai/gpt-4o-mini",
+} as const satisfies Record<AgentId, string>;
+
+function resolveModel(agent: AgentId, explicit?: string, fast?: boolean): string {
+  if (explicit) return explicit;
+  return (fast ? FAST_MODELS : MODELS)[agent];
+}
+
 const baseURL = "https://openrouter.ai/api/v1";
 
 function client() {
@@ -50,10 +69,11 @@ export async function* streamChat(opts: {
   agent: AgentId;
   messages: ChatMessage[];
   model?: string;
+  fast?: boolean;
   temperature?: number;
   maxTokens?: number;
 }): AsyncGenerator<string, void, unknown> {
-  const model = opts.model || MODELS[opts.agent];
+  const model = resolveModel(opts.agent, opts.model, opts.fast);
   const stream = await client().chat.completions.create({
     model,
     messages: opts.messages,
@@ -71,11 +91,12 @@ export async function chat(opts: {
   agent: AgentId;
   messages: ChatMessage[];
   model?: string;
+  fast?: boolean;
   temperature?: number;
   maxTokens?: number;
   responseFormat?: { type: "json_object" };
 }): Promise<string> {
-  const model = opts.model || MODELS[opts.agent];
+  const model = resolveModel(opts.agent, opts.model, opts.fast);
   const res = await client().chat.completions.create({
     model,
     messages: opts.messages,

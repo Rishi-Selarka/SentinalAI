@@ -175,7 +175,12 @@ export async function POST(req: Request) {
           };
 
           try {
-            await runTrial({ prompt: buildReviewPrompt(content), domain, emit });
+            await runTrial({
+              prompt: buildReviewPrompt(content),
+              domain,
+              emit,
+              fast: true,
+            });
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             send({ type: "file:trial", event: { type: "trial:error", message } });

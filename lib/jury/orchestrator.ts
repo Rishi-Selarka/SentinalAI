@@ -15,8 +15,13 @@ export async function runTrial(opts: {
   prompt: string;
   domain: Domain;
   emit: EmitFn;
+  fast?: boolean;
 }) {
-  const { prompt, domain, emit } = opts;
+  const { prompt, domain, emit, fast = false } = opts;
+  // Fast mode skips the retry loop (the biggest time multiplier) and runs
+  // every agent on a low-latency model — used by the repo analyzer where
+  // many files are reviewed back-to-back.
+  const maxIterations = fast ? 1 : MAX_ITERATIONS;
   emit({ type: "trial:start", prompt, domain });
 
   let iteration = 1;
@@ -27,21 +32,22 @@ export async function runTrial(opts: {
   let finalScore = 0;
 
   try {
-    while (iteration <= MAX_ITERATIONS) {
+    while (iteration <= maxIterations) {
       answer = await runGenerator({
         prompt,
         domain,
         revisionBrief,
         iteration,
         emit,
+        fast,
       });
 
       const jurorResults = await Promise.all([
-        runCritic({ prompt, answer, domain, iteration, emit }),
-        runFactChecker({ prompt, answer, domain, iteration, emit }),
-        runCodeExecutor({ prompt, answer, domain, iteration, emit }),
-        runMathVerifier({ prompt, answer, domain, iteration, emit }),
-        runStandardsVerifier({ prompt, answer, domain, iteration, emit }),
+        runCritic({ prompt, answer, domain, iteration, emit, fast }),
+        runFactChecker({ prompt, answer, domain, iteration, emit, fast }),
+        runCodeExecutor({ prompt, answer, domain, iteration, emit, fast }),
+        runMathVerifier({ prompt, answer, domain, iteration, emit, fast }),
+        runStandardsVerifier({ prompt, answer, domain, iteration, emit, fast }),
       ]);
 
       const verdicts: Record<string, JurorVerdict> = {
@@ -58,13 +64,14 @@ export async function runTrial(opts: {
         answer,
         verdicts,
         iteration,
-        maxIterations: MAX_ITERATIONS,
+        maxIterations,
+        fast,
       });
       finalScore = aggregate.score;
       finalSummary = aggregate.summary;
 
       const retry =
-        iteration < MAX_ITERATIONS && shouldRetry(score, verdicts);
+        iteration < maxIterations && shouldRetry(score, verdicts);
 
       if (retry) {
         const brief =

@@ -50,8 +50,9 @@ export async function runAggregator(opts: {
   verdicts: Record<string, JurorVerdict>;
   iteration: number;
   maxIterations: number;
+  fast?: boolean;
 }): Promise<AggregatorOutput> {
-  const { prompt, answer, verdicts, iteration, maxIterations } = opts;
+  const { prompt, answer, verdicts, iteration, maxIterations, fast } = opts;
   const score = computeScore(verdicts);
 
   // Decide preliminary label from score + retry budget. The LLM only renders
@@ -87,6 +88,7 @@ export async function runAggregator(opts: {
   try {
     raw = await chat({
       agent: "aggregator",
+      fast,
       temperature: 0,
       maxTokens: 600,
       responseFormat: { type: "json_object" },

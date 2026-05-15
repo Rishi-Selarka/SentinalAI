@@ -17,8 +17,9 @@ export async function runFactChecker(opts: {
   domain: Domain;
   iteration: number;
   emit: EmitFn;
+  fast?: boolean;
 }): Promise<JurorVerdict> {
-  const { prompt, answer, domain, iteration, emit } = opts;
+  const { prompt, answer, domain, iteration, emit, fast } = opts;
   emit({ type: "agent:start", agent: "factChecker", iteration });
 
   const userMsg = `User question:\n${prompt}\n\nGenerator's answer to verify:\n${answer}\n\nSearch the web for each factual claim. Return JSON only.`;
@@ -27,6 +28,7 @@ export async function runFactChecker(opts: {
   try {
     for await (const delta of streamChat({
       agent: "factChecker",
+      fast,
       temperature: 0.1,
       maxTokens: 900,
       messages: [
