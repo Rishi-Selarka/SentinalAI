@@ -42,6 +42,7 @@ export async function runTrialOnce(opts: {
   prompt: string;
   domain: Domain;
   mode: RenderMode;
+  fast?: boolean;
 }): Promise<TrialResult> {
   const emitter = makeStdoutEmitter({ mode: opts.mode });
   try {
@@ -49,6 +50,7 @@ export async function runTrialOnce(opts: {
       prompt: opts.prompt,
       domain: opts.domain,
       emit: emitter.emit,
+      fast: opts.fast ?? false,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -187,7 +189,15 @@ export async function cmdReview(opts: {
     }
 
     const prompt = buildReviewPrompt(input);
-    const trial = await runTrialOnce({ prompt, domain: opts.domain, mode: opts.mode });
+    // Review is bug-finding at file/directory scale — use fast mode
+    // (single pass, no retry loop) so scanning a whole tree stays
+    // affordable. Deep retry is for `trial`/`example`, not review.
+    const trial = await runTrialOnce({
+      prompt,
+      domain: opts.domain,
+      mode: opts.mode,
+      fast: true,
+    });
     const reviewExit = reviewExitCode(trial);
     const label = reviewLabel(trial);
     const bugs = trial.issueCount.high + trial.issueCount.med + trial.issueCount.low;
