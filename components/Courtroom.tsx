@@ -7,6 +7,7 @@ import { AetherLogo } from "./AetherLogo";
 import { useTrialStream } from "@/hooks/useTrialStream";
 import { PromptBar } from "./PromptBar";
 import { SandboxTerminal } from "./SandboxTerminal";
+import { TrialSummary } from "./TrialSummary";
 import { RepoAnalyzer } from "./RepoAnalyzer";
 import { easeOutExpo } from "@/lib/motion";
 import type { Domain } from "@/lib/openrouter";
@@ -146,6 +147,8 @@ function HomeView({
       {state.status !== "idle" && state.status !== "error" && (
         <SandboxTerminal state={state} />
       )}
+
+      {state.finalLabel && <TrialSummary state={state} />}
     </>
   );
 }
