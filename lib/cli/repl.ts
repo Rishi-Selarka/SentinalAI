@@ -35,14 +35,15 @@ export async function runRepl(initial: {
 
   printBanner({ cwd: process.cwd(), version: initial.version ?? "0.1.0" });
   process.stdout.write(
-    colorize("  interactive mode · type /help · ctrl-d to exit", "muted") + "\n\n"
+    colorize("  type a command below · /help for the list · ctrl-d to quit", "muted") +
+      "\n\n"
   );
 
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
     terminal: true,
-    prompt: colorize("> ", "accent"),
+    prompt: colorize("❯ ", "powder"),
   });
 
   rl.prompt();
