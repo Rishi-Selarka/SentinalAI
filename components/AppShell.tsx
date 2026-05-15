@@ -12,13 +12,19 @@ export function AppShell() {
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<SidebarView>("home");
 
+  // SSR-safe localStorage hydration: localStorage isn't readable during
+  // render, so the name must be pulled in after mount. The `hydrated` gate
+  // below keeps the first client render matching the server (both show
+  // Onboarding) so there is no hydration mismatch.
   useEffect(() => {
+    let stored: string | null = null;
     try {
-      const stored = localStorage.getItem(NAME_KEY);
-      if (stored && stored.trim()) setName(stored.trim());
+      stored = localStorage.getItem(NAME_KEY);
     } catch {
       /* localStorage unavailable */
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time external-store read on mount; see comment above
+    setName(stored && stored.trim() ? stored.trim() : null);
     setHydrated(true);
   }, []);
 
