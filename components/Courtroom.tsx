@@ -24,6 +24,7 @@ export function Courtroom({
   const { state, start, reset } = useTrialStream();
   const [domain, setDomain] = useState<Domain>("software");
   const [prompt, setPrompt] = useState("");
+  const [formKey, setFormKey] = useState(0);
 
   const running = state.status === "streaming";
   const firstName = userName.split(" ")[0];
@@ -73,6 +74,7 @@ export function Courtroom({
             domain={domain}
             running={running}
             state={state}
+            formKey={formKey}
             onSubmit={(p, d) => {
               setPrompt(p);
               setDomain(d);
@@ -80,6 +82,7 @@ export function Courtroom({
             }}
             onClear={() => {
               setPrompt("");
+              setFormKey((k) => k + 1);
               reset();
             }}
           />
@@ -99,6 +102,7 @@ function HomeView({
   domain,
   running,
   state,
+  formKey,
   onSubmit,
   onClear,
 }: {
@@ -107,6 +111,7 @@ function HomeView({
   domain: Domain;
   running: boolean;
   state: ReturnType<typeof useTrialStream>["state"];
+  formKey: number;
   onSubmit: (p: string, d: Domain) => void;
   onClear: () => void;
 }) {
@@ -130,6 +135,7 @@ function HomeView({
         transition={{ delay: 0.18, duration: 0.5, ease: easeOutExpo }}
       >
         <PromptBar
+          key={formKey}
           initialPrompt={prompt}
           initialDomain={domain}
           disabled={running}

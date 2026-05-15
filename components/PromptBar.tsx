@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import type { Domain } from "@/lib/openrouter";
 import { DOMAIN_LABELS } from "@/lib/jury/prompts";
-import { easeOutExpo } from "@/lib/motion";
 
 const DOMAINS: Domain[] = ["software", "engineering", "mixed", "finance"];
 
@@ -24,9 +23,6 @@ export function PromptBar({
 }) {
   const [prompt, setPrompt] = useState(initialPrompt);
   const [domain, setDomain] = useState<Domain>(initialDomain);
-
-  useEffect(() => setPrompt(initialPrompt), [initialPrompt]);
-  useEffect(() => setDomain(initialDomain), [initialDomain]);
 
   return (
     <motion.form
