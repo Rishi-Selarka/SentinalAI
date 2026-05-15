@@ -88,7 +88,19 @@ export async function runTrial(opts: {
         continue;
       }
 
-      finalLabel = aggregate.label;
+      // Derive the label deterministically from the score/retry state
+      // rather than trusting the aggregator LLM, which mislabels (e.g.
+      // calling a clean first-pass answer "REVISED").
+      if (shouldRetry(score, verdicts)) {
+        // Warranted a retry but the budget is exhausted (or fast mode).
+        finalLabel = "HALLUCINATION";
+      } else if (iteration > 1) {
+        // Failed initially, then passed after a revision.
+        finalLabel = "REVISED";
+      } else {
+        // Clean on the first pass.
+        finalLabel = "TRUSTED";
+      }
       break;
     }
   } catch (err) {
