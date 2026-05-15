@@ -6,16 +6,11 @@ import { Clock, Settings as SettingsIcon } from "lucide-react";
 import { AetherLogo } from "./AetherLogo";
 import { useTrialStream } from "@/hooks/useTrialStream";
 import { PromptBar } from "./PromptBar";
-import { JurorCard } from "./JurorCard";
-import { DefendantPanel } from "./DefendantPanel";
-import { Gavel } from "./Gavel";
-import { RevisionDiff } from "./RevisionDiff";
+import { SandboxTerminal } from "./SandboxTerminal";
 import { RepoAnalyzer } from "./RepoAnalyzer";
 import { easeOutExpo } from "@/lib/motion";
-import type { AgentId, Domain } from "@/lib/openrouter";
+import type { Domain } from "@/lib/openrouter";
 import type { SidebarView } from "./Sidebar";
-
-const JURORS: AgentId[] = ["critic", "factChecker", "codeExecutor", "math", "standards"];
 
 export function Courtroom({
   userName,
@@ -149,40 +144,7 @@ function HomeView({
       )}
 
       {state.status !== "idle" && state.status !== "error" && (
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: easeOutExpo }}
-          className="grid lg:grid-cols-[1fr_2fr_1fr] gap-4"
-        >
-          <div className="flex flex-col gap-3">
-            {JURORS.slice(0, 3).map((agent) => (
-              <JurorCard key={agent} agent={agent} state={state.agents[agent]} />
-            ))}
-          </div>
-          <div className="flex flex-col gap-4">
-            <DefendantPanel
-              state={state.agents.generator}
-              iterations={state.iterations}
-            />
-            {state.finalLabel && (
-              <Gavel
-                label={state.finalLabel}
-                score={state.finalScore ?? 0}
-                summary={state.finalSummary ?? ""}
-                iterations={state.currentIteration}
-              />
-            )}
-            {state.iterations.length > 1 && (
-              <RevisionDiff iterations={state.iterations} />
-            )}
-          </div>
-          <div className="flex flex-col gap-3">
-            {JURORS.slice(3).map((agent) => (
-              <JurorCard key={agent} agent={agent} state={state.agents[agent]} />
-            ))}
-          </div>
-        </motion.section>
+        <SandboxTerminal state={state} />
       )}
     </>
   );
