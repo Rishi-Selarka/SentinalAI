@@ -5,6 +5,7 @@ import {
   cmdTrial,
   cmdExample,
   cmdExamples,
+  cmdReview,
   parseDomain,
 } from "@/lib/cli/commands";
 import { runRepl } from "@/lib/cli/repl";
@@ -49,19 +50,30 @@ ${banner("sentinelai")} — multi-agent jury for AI-generated technical answers
 
 usage:
   sentinelai trial "<prompt>" [--domain s|e|m|f] [--json] [--no-color]
+  sentinelai review <file|dir|glob|->... [--domain s|e|m|f] [--max-size BYTES] [--json]
   sentinelai example <id> [--domain s|e|m|f] [--json] [--no-color]
   sentinelai examples
   sentinelai repl [--domain s|e|m|f] [--json] [--no-color]
   sentinelai doctor
   sentinelai --help
 
+review examples:
+  sentinelai review app.py
+  sentinelai review src/                       # walk directory, code files only
+  sentinelai review 'src/**/*.ts'              # glob (quote to protect from shell)
+  sentinelai review a.py b.py                  # multiple files
+  cat broken.py | sentinelai review -          # stdin
+
 flags:
   --domain      one of: software (s) · engineering (e) · mixed (m) · finance (f)
   --json        emit NDJSON events (one per line) instead of human output
   --no-color    disable ANSI colors (auto-disabled when piped)
+  --max-size N  per-file byte cap for review (default 51200, ~50KB)
 
 exit codes:
-  0  TRUSTED        1  REVISED        2  HALLUCINATION        3  error
+  trial / example:  0 TRUSTED   1 REVISED   2 HALLUCINATION   3 error
+  review:           0 CLEAN     1 BUGS      2 SERIOUS BUGS    3 unreliable/error
+  (review with multiple files returns the worst code across all files)
 `;
 
 async function main(): Promise<void> {
@@ -118,6 +130,29 @@ async function main(): Promise<void> {
     }
     case "examples": {
       process.exitCode = cmdExamples();
+      return;
+    }
+    case "review": {
+      if (!positional.length) {
+        process.stderr.write(
+          `${colorize("error:", "fail")} review requires at least one path (file, dir, glob, or '-')\n`
+        );
+        process.exitCode = 3;
+        return;
+      }
+      const maxBytesRaw = flags["max-size"];
+      const maxBytes =
+        typeof maxBytesRaw === "string" && /^\d+$/.test(maxBytesRaw)
+          ? parseInt(maxBytesRaw, 10)
+          : undefined;
+      const reviewDomain =
+        typeof flags.domain === "string" ? domain : "software";
+      process.exitCode = await cmdReview({
+        paths: positional,
+        mode,
+        domain: reviewDomain,
+        maxBytes,
+      });
       return;
     }
     case "doctor": {

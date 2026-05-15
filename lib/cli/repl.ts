@@ -3,6 +3,7 @@ import type { Domain } from "@/lib/openrouter";
 import {
   cmdExample,
   cmdExamples,
+  cmdReview,
   cmdTrial,
   parseDomain,
 } from "./commands";
@@ -12,6 +13,7 @@ import type { RenderMode } from "./render";
 const HELP = `
 commands:
   trial <prompt>             run the jury on a free-form prompt
+  review <file|dir|glob>     scan code for bugs (e.g. review src/app.py)
   example <id>               run a pre-seeded case (try: examples)
   examples                   list seeded cases
   domain <s|e|m|f>           change default domain
@@ -84,6 +86,16 @@ export async function runRepl(initial: { domain: Domain; mode: RenderMode }): Pr
         } else {
           rl.pause();
           await cmdExample({ id: rest[0], mode, domainOverride: domain });
+          rl.resume();
+        }
+      } else if (cmd === "review") {
+        if (!rest.length) {
+          process.stdout.write(
+            `${systemPrefix("usage")} review <file|dir|glob|-> [more paths...]\n`
+          );
+        } else {
+          rl.pause();
+          await cmdReview({ paths: rest, domain, mode });
           rl.resume();
         }
       } else if (cmd === "trial") {

@@ -11,9 +11,21 @@ import {
 
 export type RenderMode = "ansi" | "json";
 
+export type Severity = "low" | "med" | "high";
+
+export type TrialResult = {
+  label?: FinalLabel;
+  score?: number;
+  errored: boolean;
+  highestSeverity: Severity | "none";
+  issueCount: { high: number; med: number; low: number };
+  codeExecutorFailed: boolean;
+  standardsFailed: boolean;
+};
+
 export type StdoutEmitter = {
   emit: (event: AgentEvent) => void;
-  done: Promise<{ label?: FinalLabel; score?: number; errored: boolean }>;
+  done: Promise<TrialResult>;
 };
 
 const VERDICT_COLOR: Record<Verdict, "ok" | "fail" | "warn"> = {
@@ -39,31 +51,64 @@ export function makeStdoutEmitter(opts: {
   const mode = opts.mode ?? "ansi";
   const startedAt = opts.startedAt ?? Date.now();
   const buffers = new Map<AgentId, string>();
-  let resolveDone: (r: { label?: FinalLabel; score?: number; errored: boolean }) => void;
-  const done = new Promise<{ label?: FinalLabel; score?: number; errored: boolean }>(
-    (r) => {
-      resolveDone = r;
-    }
-  );
+  let resolveDone: (r: TrialResult) => void;
+  const done = new Promise<TrialResult>((r) => {
+    resolveDone = r;
+  });
   let finalLabel: FinalLabel | undefined;
   let finalScore: number | undefined;
   let errored = false;
   let closed = false;
+  const issueCount = { high: 0, med: 0, low: 0 };
+  let codeExecutorFailed = false;
+  let standardsFailed = false;
+
+  function severityRank(s: Severity | "none"): number {
+    return s === "high" ? 3 : s === "med" ? 2 : s === "low" ? 1 : 0;
+  }
+  function highestSeverity(): Severity | "none" {
+    if (issueCount.high) return "high";
+    if (issueCount.med) return "med";
+    if (issueCount.low) return "low";
+    return "none";
+  }
+
+  function trackVerdict(agent: AgentId, v: import("@/lib/jury/types").JurorVerdict) {
+    if (agent === "codeExecutor" && v.verdict === "fail") codeExecutorFailed = true;
+    if (agent === "standards" && v.verdict === "fail") standardsFailed = true;
+    for (const issue of v.issues) {
+      const sev = issue.severity as Severity;
+      if (sev === "high" || sev === "med" || sev === "low") issueCount[sev]++;
+    }
+  }
+
+  function buildResult(): TrialResult {
+    return {
+      label: finalLabel,
+      score: finalScore,
+      errored,
+      highestSeverity: highestSeverity(),
+      issueCount: { ...issueCount },
+      codeExecutorFailed,
+      standardsFailed,
+    };
+  }
+  void severityRank; // retain helper for future use
 
   function flushAgentLines(agent: AgentId, includeTrailing = false): void {
     const buf = buffers.get(agent) ?? "";
     if (!buf) return;
     const parts = buf.split("\n");
-    const trailing = includeTrailing ? "" : (parts.pop() ?? "");
+    let remaining = "";
+    if (includeTrailing) {
+      if (parts[parts.length - 1] === "") parts.pop();
+    } else {
+      remaining = parts.pop() ?? "";
+    }
     for (const line of parts) {
       write(`${agentPrefix(agent)} ${colorize(line, "text")}`);
     }
-    if (includeTrailing && trailing) {
-      write(`${agentPrefix(agent)} ${colorize(trailing, "text")}`);
-      buffers.set(agent, "");
-    } else {
-      buffers.set(agent, trailing);
-    }
+    buffers.set(agent, remaining);
   }
 
   function emitJson(event: AgentEvent): void {
@@ -98,6 +143,7 @@ export function makeStdoutEmitter(opts: {
       case "agent:verdict": {
         flushAgentLines(event.agent, true);
         const v = event.verdict;
+        trackVerdict(event.agent, v);
         const verdictColor = VERDICT_COLOR[v.verdict];
         const label = colorize(v.verdict.toUpperCase().padEnd(8), verdictColor);
         const conf = colorize(bar(v.confidence), "muted");
@@ -117,7 +163,16 @@ export function makeStdoutEmitter(opts: {
             "warn"
           )}`
         );
-        const briefLine = event.brief.split("\n")[0]?.slice(0, 120) ?? "";
+        const rawBrief: unknown = event.brief;
+        const briefText =
+          typeof rawBrief === "string"
+            ? rawBrief
+            : Array.isArray(rawBrief)
+            ? rawBrief.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join("\n")
+            : rawBrief == null
+            ? ""
+            : JSON.stringify(rawBrief);
+        const briefLine = briefText.split("\n")[0]?.slice(0, 120) ?? "";
         if (briefLine) {
           write(`${systemPrefix("judge")} ${colorize(briefLine, "muted")}`);
         }
@@ -155,7 +210,7 @@ export function makeStdoutEmitter(opts: {
       case "trial:end": {
         if (closed) return;
         closed = true;
-        resolveDone({ label: finalLabel, score: finalScore, errored });
+        resolveDone(buildResult());
         break;
       }
     }
@@ -163,22 +218,35 @@ export function makeStdoutEmitter(opts: {
 
   function emit(event: AgentEvent): void {
     if (closed && event.type !== "trial:end") return;
-    if (mode === "json") {
-      emitJson(event);
-      if (event.type === "jury:final") {
-        finalLabel = event.label;
-        finalScore = event.score;
+    try {
+      if (mode === "json") {
+        emitJson(event);
+        if (event.type === "agent:verdict") {
+          trackVerdict(event.agent, event.verdict);
+        }
+        if (event.type === "jury:final") {
+          finalLabel = event.label;
+          finalScore = event.score;
+        }
+        if (event.type === "trial:error") {
+          errored = true;
+        }
+        if (event.type === "trial:end" && !closed) {
+          closed = true;
+          resolveDone(buildResult());
+        }
+        return;
       }
-      if (event.type === "trial:error") {
-        errored = true;
-      }
+      emitAnsi(event);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`\n[render error] ${msg}\n`);
+      // Never propagate render errors — the trial should keep running.
       if (event.type === "trial:end" && !closed) {
         closed = true;
-        resolveDone({ label: finalLabel, score: finalScore, errored });
+        resolveDone(buildResult());
       }
-      return;
     }
-    emitAnsi(event);
   }
 
   return { emit, done };
