@@ -260,8 +260,18 @@ export function makeStdoutEmitter(
             "powder"
           )}`
         );
-        for (const ln of wrapText(event.prompt, 64)) {
+        // Review prompts embed the entire file — never echo that wall.
+        // Show only the lead-in, stopping at the first code fence.
+        const fence = event.prompt.indexOf("```");
+        const preview = (fence === -1 ? event.prompt : event.prompt.slice(0, fence))
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 220);
+        for (const ln of wrapText(preview, 64)) {
           write(`${colorize("│", "powder")} ${colorize(ln, "text")}`);
+        }
+        if (preview.length < event.prompt.replace(/\s+/g, " ").trim().length) {
+          write(`${colorize("│", "powder")} ${colorize("…", "muted")}`);
         }
         write(colorize("└" + "─".repeat(62), "powderDim"));
         write();
