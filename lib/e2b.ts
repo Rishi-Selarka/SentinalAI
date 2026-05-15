@@ -53,17 +53,41 @@ export async function runPython(code: string, timeoutMs = 20_000): Promise<Sandb
 }
 
 export function extractCodeBlock(text: string, lang?: string): string | null {
-  const langPattern = lang ? `(?:${lang})` : `[a-zA-Z0-9_+-]*`;
-  const re = new RegExp(`\`\`\`${langPattern}\\s*\\n([\\s\\S]*?)\`\`\``, "i");
-  const match = text.match(re);
-  return match ? match[1].trim() : null;
+  if (lang) {
+    // Match a fence explicitly tagged with this language.
+    const re = new RegExp("```(?:" + lang + ")[ \\t]*\\r?\\n([\\s\\S]*?)```", "i");
+    const m = text.match(re);
+    return m ? m[1].trim() : null;
+  }
+  // Untagged fence only: ``` followed by optional spaces then a newline.
+  // Deliberately does NOT match ```yaml / ```json / ```bash etc.
+  const m = text.match(/```[ \t]*\r?\n([\s\S]*?)```/);
+  return m ? m[1].trim() : null;
+}
+
+// Lightweight sniff so an untagged or mislabeled block that is clearly
+// not Python (YAML, JSON, shell, Dockerfile, …) is never executed.
+function looksLikePython(code: string): boolean {
+  if (!code.trim()) return false;
+  const pyHints =
+    /\b(def |class |import |from \w+ import |print\(|if __name__|return |lambda |async def )/;
+  if (pyHints.test(code)) return true;
+  // Strong non-Python signals.
+  const yamlish = /^[ \t]*[\w.-]+:\s*($|\S)/m; // key: value lines
+  const looksYaml =
+    yamlish.test(code) && !/[=;{}]|def |import /.test(code.split("\n")[0] ?? "");
+  if (looksYaml) return false;
+  if (/^\s*[{[]/.test(code) && /[}\]]\s*$/.test(code)) return false; // JSON
+  if (/^\s*#!\s*\/(bin|usr)/.test(code)) return false; // shebang script
+  return true; // ambiguous → allow (Python is the default target)
 }
 
 export function extractAnyPython(text: string): string | null {
-  const candidates = ["python", "py", "python3", ""];
-  for (const lang of candidates) {
-    const block = extractCodeBlock(text, lang || undefined);
+  for (const lang of ["python3", "python", "py"]) {
+    const block = extractCodeBlock(text, lang);
     if (block) return block;
   }
+  const untagged = extractCodeBlock(text);
+  if (untagged && looksLikePython(untagged)) return untagged;
   return null;
 }
