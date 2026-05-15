@@ -1,13 +1,7 @@
 import type { AgentEvent, FinalLabel, Verdict } from "@/lib/jury/types";
+import { AGENT_LABELS } from "@/lib/jury/types";
 import type { AgentId } from "@/lib/openrouter";
-import {
-  agentPrefix,
-  bar,
-  banner,
-  colorize,
-  rule,
-  systemPrefix,
-} from "./ansi";
+import { bar, colorize } from "./ansi";
 
 export type RenderMode = "ansi" | "json";
 
@@ -40,21 +34,56 @@ const LABEL_COLOR: Record<FinalLabel, "ok" | "warn" | "fail"> = {
   HALLUCINATION: "fail",
 };
 
-function write(line: string): void {
+const JUROR_ORDER: AgentId[] = [
+  "critic",
+  "factChecker",
+  "codeExecutor",
+  "math",
+  "standards",
+];
+
+const SHORT_NAME: Record<string, string> = {
+  critic: "logic",
+  factChecker: "facts",
+  codeExecutor: "code",
+  math: "math",
+  standards: "standards",
+};
+
+const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+function write(line = ""): void {
   process.stdout.write(line + "\n");
 }
 
-export function makeStdoutEmitter(opts: {
-  mode?: RenderMode;
-  startedAt?: number;
-} = {}): StdoutEmitter {
+function wrapText(text: string, width: number): string[] {
+  const words = text.replace(/\s+/g, " ").trim().split(" ");
+  const lines: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    if ((cur + " " + w).trim().length > width) {
+      if (cur) lines.push(cur);
+      cur = w;
+    } else {
+      cur = (cur + " " + w).trim();
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+export function makeStdoutEmitter(
+  opts: { mode?: RenderMode; startedAt?: number } = {}
+): StdoutEmitter {
   const mode = opts.mode ?? "ansi";
   const startedAt = opts.startedAt ?? Date.now();
-  const buffers = new Map<AgentId, string>();
+  const isTTY = mode === "ansi" && !!process.stdout.isTTY;
+
   let resolveDone: (r: TrialResult) => void;
   const done = new Promise<TrialResult>((r) => {
     resolveDone = r;
   });
+
   let finalLabel: FinalLabel | undefined;
   let finalScore: number | undefined;
   let errored = false;
@@ -63,9 +92,16 @@ export function makeStdoutEmitter(opts: {
   let codeExecutorFailed = false;
   let standardsFailed = false;
 
-  function severityRank(s: Severity | "none"): number {
-    return s === "high" ? 3 : s === "med" ? 2 : s === "low" ? 1 : 0;
-  }
+  // generator answer streaming state
+  let genActive = false;
+  let genBuf = "";
+
+  // jury progress state
+  const jurorStatus = new Map<AgentId, "pending" | "done">();
+  let spinnerTimer: ReturnType<typeof setInterval> | null = null;
+  let spinnerFrame = 0;
+  let spinnerLineActive = false;
+
   function highestSeverity(): Severity | "none" {
     if (issueCount.high) return "high";
     if (issueCount.med) return "med";
@@ -73,7 +109,10 @@ export function makeStdoutEmitter(opts: {
     return "none";
   }
 
-  function trackVerdict(agent: AgentId, v: import("@/lib/jury/types").JurorVerdict) {
+  function trackVerdict(
+    agent: AgentId,
+    v: import("@/lib/jury/types").JurorVerdict
+  ) {
     if (agent === "codeExecutor" && v.verdict === "fail") codeExecutorFailed = true;
     if (agent === "standards" && v.verdict === "fail") standardsFailed = true;
     for (const issue of v.issues) {
@@ -93,22 +132,100 @@ export function makeStdoutEmitter(opts: {
       standardsFailed,
     };
   }
-  void severityRank; // retain helper for future use
 
-  function flushAgentLines(agent: AgentId, includeTrailing = false): void {
-    const buf = buffers.get(agent) ?? "";
-    if (!buf) return;
-    const parts = buf.split("\n");
-    let remaining = "";
-    if (includeTrailing) {
-      if (parts[parts.length - 1] === "") parts.pop();
-    } else {
-      remaining = parts.pop() ?? "";
+  function spinnerText(): string {
+    const frame = SPINNER[spinnerFrame % SPINNER.length];
+    const parts = JUROR_ORDER.filter((j) => jurorStatus.has(j)).map((j) => {
+      const st = jurorStatus.get(j);
+      const name = SHORT_NAME[j] ?? j;
+      return st === "done"
+        ? colorize(`${name}✓`, "ok")
+        : colorize(name, "muted");
+    });
+    const doneN = [...jurorStatus.values()].filter((s) => s === "done").length;
+    return `${colorize(frame, "powder")} jury deliberating  ${parts.join("  ")}  ${colorize(
+      `${doneN}/${jurorStatus.size}`,
+      "muted"
+    )}`;
+  }
+
+  function clearSpinnerLine(): void {
+    if (spinnerLineActive) {
+      process.stdout.write("\r\x1b[2K");
+      spinnerLineActive = false;
     }
-    for (const line of parts) {
-      write(`${agentPrefix(agent)} ${colorize(line, "text")}`);
+  }
+
+  function renderSpinner(): void {
+    if (!isTTY) return;
+    process.stdout.write("\r\x1b[2K" + spinnerText());
+    spinnerLineActive = true;
+  }
+
+  function startSpinner(): void {
+    if (!isTTY || spinnerTimer) return;
+    renderSpinner();
+    spinnerTimer = setInterval(() => {
+      spinnerFrame++;
+      renderSpinner();
+    }, 90);
+  }
+
+  function stopSpinner(): void {
+    if (spinnerTimer) {
+      clearInterval(spinnerTimer);
+      spinnerTimer = null;
     }
-    buffers.set(agent, remaining);
+    clearSpinnerLine();
+  }
+
+  function flushGenerator(): void {
+    if (!genActive) return;
+    const text = genBuf.trimEnd();
+    if (text) {
+      for (const raw of text.split("\n")) {
+        write(`  ${colorize("│", "powderDim")} ${colorize(raw, "text")}`);
+      }
+    }
+    genBuf = "";
+    genActive = false;
+    write();
+  }
+
+  function verdictCard(
+    agent: AgentId,
+    v: import("@/lib/jury/types").JurorVerdict
+  ): void {
+    const vc = VERDICT_COLOR[v.verdict];
+    const tag = colorize(` ${v.verdict.toUpperCase().padEnd(9)}`, vc);
+    const name = colorize(AGENT_LABELS[agent].padEnd(18), "text");
+    const conf = colorize(bar(v.confidence), vc);
+    const num = colorize(v.confidence.toFixed(2), "muted");
+    write(`${tag} ${name} ${conf} ${num}`);
+    if (v.summary) {
+      for (const ln of wrapText(v.summary, 72)) {
+        write(`           ${colorize(ln, "muted")}`);
+      }
+    }
+    for (const issue of v.issues.slice(0, 4)) {
+      const sevColor =
+        issue.severity === "high"
+          ? "fail"
+          : issue.severity === "med"
+          ? "warn"
+          : "muted";
+      const lines = wrapText(issue.message, 66);
+      write(
+        `           ${colorize(
+          `${issue.severity.toUpperCase()}`,
+          sevColor
+        )}  ${colorize(lines[0] ?? "", "muted")}`
+      );
+      for (const extra of lines.slice(1)) {
+        write(`                 ${colorize(extra, "muted")}`);
+      }
+    }
+    write();
   }
 
   function emitJson(event: AgentEvent): void {
@@ -118,96 +235,125 @@ export function makeStdoutEmitter(opts: {
   function emitAnsi(event: AgentEvent): void {
     switch (event.type) {
       case "trial:start": {
-        write("");
-        write(banner(`sentinelai  ·  ${event.domain}  ·  ${shortPrompt(event.prompt)}`));
-        write(rule());
-        break;
-      }
-      case "agent:start": {
-        if (event.iteration > 1 && event.agent === "generator") {
-          write(`${systemPrefix("trial")} ${colorize(`iteration ${event.iteration}`, "info")}`);
-        }
-        buffers.set(event.agent, "");
-        break;
-      }
-      case "agent:token": {
-        const prev = buffers.get(event.agent) ?? "";
-        buffers.set(event.agent, prev + event.delta);
-        flushAgentLines(event.agent, false);
-        break;
-      }
-      case "agent:answer": {
-        flushAgentLines(event.agent, true);
-        break;
-      }
-      case "agent:verdict": {
-        flushAgentLines(event.agent, true);
-        const v = event.verdict;
-        trackVerdict(event.agent, v);
-        const verdictColor = VERDICT_COLOR[v.verdict];
-        const label = colorize(v.verdict.toUpperCase().padEnd(8), verdictColor);
-        const conf = colorize(bar(v.confidence), "muted");
-        const num = colorize(v.confidence.toFixed(2), "muted");
-        const summary = v.summary ? `  ${colorize(v.summary, "text")}` : "";
-        write(`${agentPrefix(event.agent)} ▶ ${label} ${conf} ${num}${summary}`);
-        for (const issue of v.issues.slice(0, 3)) {
-          const sev = colorize(`[${issue.severity}]`, "fail");
-          write(`${agentPrefix(event.agent)}   ${sev} ${colorize(issue.message, "muted")}`);
-        }
-        break;
-      }
-      case "jury:retry": {
+        write();
+        write(colorize("┌─ trial ", "powder") + colorize("─".repeat(54), "powderDim"));
         write(
-          `${systemPrefix("judge")} ${colorize(
-            `score ${event.score.toFixed(2)} · revising (iter ${event.iteration})`,
-            "warn"
+          `${colorize("│", "powder")} ${colorize("domain", "muted")}  ${colorize(
+            event.domain,
+            "powder"
           )}`
         );
-        const rawBrief: unknown = event.brief;
-        const briefText =
-          typeof rawBrief === "string"
-            ? rawBrief
-            : Array.isArray(rawBrief)
-            ? rawBrief.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join("\n")
-            : rawBrief == null
-            ? ""
-            : JSON.stringify(rawBrief);
-        const briefLine = briefText.split("\n")[0]?.slice(0, 120) ?? "";
-        if (briefLine) {
-          write(`${systemPrefix("judge")} ${colorize(briefLine, "muted")}`);
+        for (const ln of wrapText(event.prompt, 64)) {
+          write(`${colorize("│", "powder")} ${colorize(ln, "text")}`);
+        }
+        write(colorize("└" + "─".repeat(62), "powderDim"));
+        write();
+        break;
+      }
+
+      case "agent:start": {
+        if (event.agent === "generator") {
+          stopSpinner();
+          jurorStatus.clear();
+          const hdr =
+            event.iteration > 1
+              ? `answer · revision ${event.iteration}`
+              : "answer";
+          write(colorize(`▌ ${hdr}`, "powder"));
+          genActive = true;
+          genBuf = "";
+        } else if (event.agent !== "aggregator") {
+          jurorStatus.set(event.agent, "pending");
+          startSpinner();
         }
         break;
       }
-      case "jury:final": {
-        finalLabel = event.label;
-        finalScore = event.score;
-        const labelColor = LABEL_COLOR[event.label];
-        const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-        write(rule());
-        write(
-          `${systemPrefix("judge")} ▶ ${colorize(event.label, labelColor)}   ${colorize(
-            `score ${event.score.toFixed(2)}`,
-            "text"
-          )}   ${colorize(`${event.iterations} iter`, "muted")}   ${colorize(`${elapsed}s`, "muted")}`
-        );
-        if (event.summary) {
-          for (const line of event.summary.split("\n").slice(0, 6)) {
-            if (!line.trim()) continue;
-            write(`${systemPrefix("judge")} ${colorize(line, "text")}`);
+
+      case "agent:token": {
+        // Only the generator's tokens are human-readable prose. Juror
+        // tokens are raw JSON — suppress them entirely and show progress.
+        if (event.agent === "generator") {
+          genBuf += event.delta;
+          let nl: number;
+          while ((nl = genBuf.indexOf("\n")) !== -1) {
+            const line = genBuf.slice(0, nl);
+            genBuf = genBuf.slice(nl + 1);
+            write(`  ${colorize("│", "powderDim")} ${colorize(line, "text")}`);
           }
         }
-        write(rule());
-        write("");
         break;
       }
+
+      case "agent:answer": {
+        flushGenerator();
+        write(colorize("▌ jury", "powder"));
+        write();
+        break;
+      }
+
+      case "agent:verdict": {
+        trackVerdict(event.agent, event.verdict);
+        if (event.agent === "aggregator") break;
+        jurorStatus.set(event.agent, "done");
+        const restart = spinnerTimer !== null;
+        stopSpinner();
+        verdictCard(event.agent, event.verdict);
+        if (restart && [...jurorStatus.values()].some((s) => s === "pending")) {
+          startSpinner();
+        }
+        break;
+      }
+
+      case "jury:retry": {
+        stopSpinner();
+        write(
+          colorize(
+            `↻ revising — score ${event.score.toFixed(2)}, iteration ${event.iteration}`,
+            "warn"
+          )
+        );
+        write();
+        break;
+      }
+
+      case "jury:final": {
+        stopSpinner();
+        finalLabel = event.label;
+        finalScore = event.score;
+        const lc = LABEL_COLOR[event.label];
+        const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+        write(colorize("═".repeat(62), lc));
+        write(
+          `  ${colorize(` ${event.label} `, lc)}   ${colorize(
+            `score ${event.score.toFixed(2)}`,
+            "text"
+          )}   ${colorize(
+            `${event.iterations} iter · ${elapsed}s`,
+            "muted"
+          )}`
+        );
+        if (event.summary) {
+          write();
+          for (const ln of wrapText(event.summary, 70)) {
+            write(`  ${colorize(ln, "text")}`);
+          }
+        }
+        write(colorize("═".repeat(62), lc));
+        write();
+        break;
+      }
+
       case "trial:error": {
+        stopSpinner();
         errored = true;
-        write("");
-        write(`${systemPrefix("error")} ${colorize(event.message, "fail")}`);
-        write("");
+        write();
+        write(`  ${colorize(" ERROR ", "fail")} ${colorize(event.message, "fail")}`);
+        write();
         break;
       }
+
       case "trial:end": {
+        stopSpinner();
         if (closed) return;
         closed = true;
         resolveDone(buildResult());
@@ -221,16 +367,12 @@ export function makeStdoutEmitter(opts: {
     try {
       if (mode === "json") {
         emitJson(event);
-        if (event.type === "agent:verdict") {
-          trackVerdict(event.agent, event.verdict);
-        }
+        if (event.type === "agent:verdict") trackVerdict(event.agent, event.verdict);
         if (event.type === "jury:final") {
           finalLabel = event.label;
           finalScore = event.score;
         }
-        if (event.type === "trial:error") {
-          errored = true;
-        }
+        if (event.type === "trial:error") errored = true;
         if (event.type === "trial:end" && !closed) {
           closed = true;
           resolveDone(buildResult());
@@ -240,8 +382,8 @@ export function makeStdoutEmitter(opts: {
       emitAnsi(event);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      stopSpinner();
       process.stderr.write(`\n[render error] ${msg}\n`);
-      // Never propagate render errors — the trial should keep running.
       if (event.type === "trial:end" && !closed) {
         closed = true;
         resolveDone(buildResult());
@@ -250,9 +392,4 @@ export function makeStdoutEmitter(opts: {
   }
 
   return { emit, done };
-}
-
-function shortPrompt(p: string): string {
-  const oneLine = p.replace(/\s+/g, " ").trim();
-  return oneLine.length > 60 ? `${oneLine.slice(0, 60)}…` : oneLine;
 }
