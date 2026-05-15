@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRepoStream, type FileAnalysis, type FileReviewLabel } from "@/hooks/useRepoStream";
 import { AGENT_LABELS } from "@/lib/jury/types";
 import type { AgentId } from "@/lib/openrouter";
@@ -138,28 +137,20 @@ export function RepoAnalyzer() {
   const canSubmit = !running && url.trim().length > 0;
 
   return (
-    <div className="min-h-screen w-full bg-cream">
-      <div className="max-w-5xl mx-auto px-4 md:px-8 py-8 flex flex-col gap-6">
-        <header className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-surface-500">SentinelAI</div>
-            <h1 className="text-2xl md:text-3xl font-light text-surface">Analyze a GitHub repo</h1>
-            <p className="text-sm text-surface-500 mt-1 max-w-2xl">
-              Paste a public GitHub URL. The jury reviews up to 5 of the most
-              interesting code files in the repo and flags real bugs (Python files
-              get sandbox execution; other languages get the static review).
-            </p>
-          </div>
-          <Link
-            href="/"
-            className="text-xs text-surface-500 hover:text-surface underline-offset-4 hover:underline"
-          >
-            ← back to trial
-          </Link>
+    <div className="w-full">
+      <div className="flex flex-col gap-6">
+        <header className="flex flex-col items-center text-center gap-1">
+          <h2 className="text-2xl md:text-3xl font-light text-surface">
+            Analyze a GitHub repo
+          </h2>
+          <p className="text-sm text-surface-500 max-w-2xl">
+            Paste a public GitHub URL. The jury reviews up to 5 of the most
+            interesting code files and flags real bugs.
+          </p>
         </header>
 
         <form
-          className="flex flex-col sm:flex-row gap-2"
+          className="flex flex-col sm:flex-row gap-2 max-w-2xl w-full mx-auto"
           onSubmit={(e) => {
             e.preventDefault();
             if (!canSubmit) return;

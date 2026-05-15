@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Brain,
@@ -95,12 +94,6 @@ function ConfidenceRing({ value, tone }: { value: number; tone: ReturnType<typeo
 }
 
 export function JurorCard({ agent, state }: { agent: AgentId; state: AgentState }) {
-  const tokensRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (tokensRef.current) tokensRef.current.scrollTop = tokensRef.current.scrollHeight;
-  }, [state.tokens]);
-
   const tone = verdictTone(state);
   const Icon = AGENT_ICON[agent];
   const verdictText = state.verdict?.verdict?.toUpperCase() ?? null;
@@ -155,16 +148,11 @@ export function JurorCard({ agent, state }: { agent: AgentId; state: AgentState 
         </div>
       )}
 
-      <div
-        ref={tokensRef}
-        className="font-mono text-[11px] leading-snug text-surface-300 bg-surface rounded-lg p-2.5 max-h-32 overflow-y-auto whitespace-pre-wrap"
-      >
-        {state.tokens || (
-          <span className="text-surface-500">
-            {state.status === "idle" ? "awaiting deliberation…" : "preparing…"}
-          </span>
-        )}
-      </div>
+      {state.status !== "done" && !state.verdict && (
+        <div className="text-[11px] text-surface-500 italic">
+          {state.status === "idle" ? "Awaiting deliberation…" : "Deliberating…"}
+        </div>
+      )}
 
       {state.verdict?.issues && state.verdict.issues.length > 0 && (
         <ul className="text-[11px] text-risk-high space-y-1">

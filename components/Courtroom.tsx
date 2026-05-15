@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { Clock, Settings as SettingsIcon } from "lucide-react";
 import { AetherLogo } from "./AetherLogo";
@@ -11,8 +10,7 @@ import { JurorCard } from "./JurorCard";
 import { DefendantPanel } from "./DefendantPanel";
 import { Gavel } from "./Gavel";
 import { RevisionDiff } from "./RevisionDiff";
-import { ExamplePicker } from "./ExamplePicker";
-import { JuryIntro } from "./JuryIntro";
+import { RepoAnalyzer } from "./RepoAnalyzer";
 import { easeOutExpo } from "@/lib/motion";
 import type { AgentId, Domain } from "@/lib/openrouter";
 import type { SidebarView } from "./Sidebar";
@@ -83,40 +81,11 @@ export function Courtroom({
           />
         )}
 
-        {view === "jurors" && <JuryIntro />}
-
-        {view === "examples" && (
-          <section className="flex flex-col gap-4">
-            <div>
-              <h2 className="text-xl font-medium text-surface">Pre-seeded cases</h2>
-              <p className="text-sm text-surface-500 mt-1">
-                Hand-picked prompts designed to make a model hallucinate. Pick one
-                to convene the jury instantly.
-              </p>
-            </div>
-            <ExamplePicker
-              disabled={running}
-              onPick={(ex) => {
-                setPrompt(ex.prompt);
-                setDomain(ex.domain);
-                start(ex.prompt, ex.domain);
-              }}
-            />
-          </section>
-        )}
+        {view === "repo" && <RepoAnalyzer />}
 
         {view === "history" && <ComingSoon icon={Clock} label="History" />}
         {view === "settings" && <ComingSoon icon={SettingsIcon} label="Settings" />}
       </div>
-
-      {/* Floating shortcut to the repo analyzer — only rendered for signed-in
-          users (since this component is only mounted after onboarding). */}
-      <Link
-        href="/repo"
-        className="fixed bottom-6 right-6 z-50 px-4 py-2 rounded-full bg-surface text-cream text-xs font-medium shadow-lg hover:shadow-xl hover:bg-surface-200 transition"
-      >
-        Analyze GitHub repo →
-      </Link>
     </motion.div>
   );
 }
@@ -145,16 +114,11 @@ function HomeView({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5, ease: easeOutExpo }}
-        className="flex flex-col gap-4"
+        className="flex flex-col items-center text-center"
       >
         <h2 className="text-3xl md:text-4xl font-light text-surface leading-tight">
           Welcome back, <span className="font-medium">{firstName}</span>.
         </h2>
-        <p className="text-sm md:text-base text-surface-500 max-w-2xl">
-          Submit a technical question. A jury of five independent agents — each on
-          a different model family — will inspect, run, and fact-check the answer
-          before the Judge issues a verdict.
-        </p>
       </motion.section>
 
       <motion.section
