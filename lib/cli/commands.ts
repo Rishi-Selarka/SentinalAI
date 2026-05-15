@@ -342,7 +342,8 @@ export async function cmdReview(opts: {
               : it.severity === "med"
               ? "warn"
               : "muted";
-          const msg = it.message.replace(/\s+/g, " ").trim().slice(0, 92);
+          const flat = it.message.replace(/\s+/g, " ").trim();
+          const msg = flat.length > 92 ? flat.slice(0, 91).trimEnd() + "…" : flat;
           process.stdout.write(
             `          ${colorize(it.severity.toUpperCase().padEnd(4), sevColor)} ${colorize(
               msg,
