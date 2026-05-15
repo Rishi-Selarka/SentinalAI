@@ -7,6 +7,7 @@ import { Courtroom } from "./Courtroom";
 const NAME_KEY = "sentinelai.userName";
 
 export function AppShell() {
+  // Render onboarding on first paint; swap to Courtroom after we read localStorage.
   const [name, setName] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -20,33 +21,33 @@ export function AppShell() {
     setHydrated(true);
   }, []);
 
-  if (!hydrated) return null;
-
-  if (!name) {
+  // Until hydrated we don't know the user's name yet, so show onboarding.
+  // After hydration, if we recovered a name, swap to the Courtroom.
+  if (hydrated && name) {
     return (
-      <Onboarding
-        onContinue={(n) => {
+      <Courtroom
+        userName={name}
+        onResetUser={() => {
           try {
-            localStorage.setItem(NAME_KEY, n);
+            localStorage.removeItem(NAME_KEY);
           } catch {
             /* ignore */
           }
-          setName(n);
+          setName(null);
         }}
       />
     );
   }
 
   return (
-    <Courtroom
-      userName={name}
-      onResetUser={() => {
+    <Onboarding
+      onContinue={(n) => {
         try {
-          localStorage.removeItem(NAME_KEY);
+          localStorage.setItem(NAME_KEY, n);
         } catch {
           /* ignore */
         }
-        setName(null);
+        setName(n);
       }}
     />
   );
