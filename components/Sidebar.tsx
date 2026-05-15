@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import {
   MessageSquare,
   History,
-  Settings,
   LogOut,
   FolderGit2,
   PanelLeftClose,
@@ -13,12 +12,11 @@ import {
 } from "lucide-react";
 import { AetherLogo } from "./AetherLogo";
 
-export type SidebarView = "home" | "repo" | "history" | "settings";
+export type SidebarView = "home" | "repo" | "history";
 
 const NAV: { id: SidebarView; label: string; icon: typeof MessageSquare }[] = [
   { id: "home", label: "New Trial", icon: MessageSquare },
   { id: "history", label: "History", icon: History },
-  { id: "settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({
