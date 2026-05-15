@@ -3,9 +3,15 @@ import { AGENT_LABELS } from "@/lib/jury/types";
 import type { AgentId } from "@/lib/openrouter";
 import { bar, colorize } from "./ansi";
 
-export type RenderMode = "ansi" | "json";
+export type RenderMode = "ansi" | "json" | "quiet";
 
 export type Severity = "low" | "med" | "high";
+
+export type CollectedIssue = {
+  agent: AgentId;
+  severity: Severity;
+  message: string;
+};
 
 export type TrialResult = {
   label?: FinalLabel;
@@ -15,6 +21,9 @@ export type TrialResult = {
   issueCount: { high: number; med: number; low: number };
   codeExecutorFailed: boolean;
   standardsFailed: boolean;
+  issues: CollectedIssue[];
+  summary?: string;
+  elapsedMs: number;
 };
 
 export type StdoutEmitter = {
@@ -78,6 +87,7 @@ export function makeStdoutEmitter(
   const mode = opts.mode ?? "ansi";
   const startedAt = opts.startedAt ?? Date.now();
   const isTTY = mode === "ansi" && !!process.stdout.isTTY;
+  const collectedIssues: CollectedIssue[] = [];
 
   let resolveDone: (r: TrialResult) => void;
   const done = new Promise<TrialResult>((r) => {
@@ -86,6 +96,7 @@ export function makeStdoutEmitter(
 
   let finalLabel: FinalLabel | undefined;
   let finalScore: number | undefined;
+  let finalSummary: string | undefined;
   let errored = false;
   let closed = false;
   const issueCount = { high: 0, med: 0, low: 0 };
@@ -117,7 +128,10 @@ export function makeStdoutEmitter(
     if (agent === "standards" && v.verdict === "fail") standardsFailed = true;
     for (const issue of v.issues) {
       const sev = issue.severity as Severity;
-      if (sev === "high" || sev === "med" || sev === "low") issueCount[sev]++;
+      if (sev === "high" || sev === "med" || sev === "low") {
+        issueCount[sev]++;
+        collectedIssues.push({ agent, severity: sev, message: issue.message });
+      }
     }
   }
 
@@ -130,6 +144,9 @@ export function makeStdoutEmitter(
       issueCount: { ...issueCount },
       codeExecutorFailed,
       standardsFailed,
+      issues: collectedIssues.slice(),
+      summary: finalSummary,
+      elapsedMs: Date.now() - startedAt,
     };
   }
 
@@ -320,6 +337,7 @@ export function makeStdoutEmitter(
         stopSpinner();
         finalLabel = event.label;
         finalScore = event.score;
+        finalSummary = event.summary;
         const lc = LABEL_COLOR[event.label];
         const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
         write(colorize("═".repeat(62), lc));
@@ -365,12 +383,13 @@ export function makeStdoutEmitter(
   function emit(event: AgentEvent): void {
     if (closed && event.type !== "trial:end") return;
     try {
-      if (mode === "json") {
-        emitJson(event);
+      if (mode === "json" || mode === "quiet") {
+        if (mode === "json") emitJson(event);
         if (event.type === "agent:verdict") trackVerdict(event.agent, event.verdict);
         if (event.type === "jury:final") {
           finalLabel = event.label;
           finalScore = event.score;
+          finalSummary = event.summary;
         }
         if (event.type === "trial:error") errored = true;
         if (event.type === "trial:end" && !closed) {
