@@ -7,31 +7,36 @@ import {
   cmdTrial,
   parseDomain,
 } from "./commands";
-import { banner, colorize, rule, systemPrefix } from "./ansi";
+import { colorize, systemPrefix } from "./ansi";
+import { printBanner } from "./welcome";
 import type { RenderMode } from "./render";
 
 const HELP = `
-commands:
-  trial <prompt>             run the jury on a free-form prompt
-  review <file|dir|glob>     scan code for bugs (e.g. review src/app.py)
-  example <id>               run a pre-seeded case (try: examples)
-  examples                   list seeded cases
-  domain <s|e|m|f>           change default domain
-  json on|off                toggle NDJSON output mode
-  clear                      clear the screen
-  help                       this message
-  exit                       leave repl (or ctrl-d)
+commands (the leading / is optional):
+  /trial <prompt>            run the jury on a free-form prompt
+  /review <file|dir|glob>    scan code for bugs (e.g. /review src/app.py)
+  /example <id>              run a pre-seeded case (try: /examples)
+  /examples                  list seeded cases
+  /domain <s|e|m|f>          change default domain
+  /json on|off               toggle NDJSON output mode
+  /clear                     clear the screen
+  /help                      this message
+  /exit                      leave repl (or ctrl-d)
 `;
 
-export async function runRepl(initial: { domain: Domain; mode: RenderMode }): Promise<number> {
+export async function runRepl(initial: {
+  domain: Domain;
+  mode: RenderMode;
+  version?: string;
+}): Promise<number> {
   let domain = initial.domain;
   let mode = initial.mode;
   let lastPrompt = "";
 
-  process.stdout.write("\n");
-  process.stdout.write(banner("sentinelai · interactive") + "\n");
-  process.stdout.write(colorize("type 'help' for commands · ctrl-d to exit", "muted") + "\n");
-  process.stdout.write(rule() + "\n\n");
+  printBanner({ cwd: process.cwd(), version: initial.version ?? "0.1.0" });
+  process.stdout.write(
+    colorize("  interactive mode · type /help · ctrl-d to exit", "muted") + "\n\n"
+  );
 
   const rl = createInterface({
     input: process.stdin,
@@ -48,8 +53,9 @@ export async function runRepl(initial: { domain: Domain; mode: RenderMode }): Pr
       rl.prompt();
       continue;
     }
-    const [cmd, ...rest] = line.split(/\s+/);
-    const argText = line.slice(cmd.length).trim();
+    const [rawCmd, ...rest] = line.split(/\s+/);
+    const cmd = rawCmd.replace(/^\//, "");
+    const argText = line.slice(rawCmd.length).trim();
 
     try {
       if (cmd === "exit" || cmd === "quit") {

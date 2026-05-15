@@ -10,7 +10,9 @@ export type Color =
   | "ok"
   | "fail"
   | "warn"
-  | "info";
+  | "info"
+  | "powder"
+  | "powderDim";
 
 const CODES: Record<Color, string> = {
   reset: "0",
@@ -23,6 +25,8 @@ const CODES: Record<Color, string> = {
   fail: "38;5;131",
   warn: "38;5;136",
   info: "38;5;67",
+  powder: "38;5;153",
+  powderDim: "38;5;152",
 };
 
 let colorEnabled = true;

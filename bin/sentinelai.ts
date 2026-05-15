@@ -1,4 +1,7 @@
 #!/usr/bin/env -S npx tsx
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { loadEnv } from "@/lib/cli/env";
 import { setColor, banner, colorize } from "@/lib/cli/ansi";
 import {
@@ -9,7 +12,18 @@ import {
   parseDomain,
 } from "@/lib/cli/commands";
 import { runRepl } from "@/lib/cli/repl";
+import { printBanner } from "@/lib/cli/welcome";
 import type { RenderMode } from "@/lib/cli/render";
+
+function readVersion(): string {
+  try {
+    const pkgPath = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
 
 type ParsedArgs = {
   command: string | undefined;
@@ -100,7 +114,7 @@ async function main(): Promise<void> {
 
   switch (command) {
     case undefined: {
-      process.stdout.write(HELP + "\n");
+      printBanner({ cwd: process.cwd(), version: readVersion() });
       process.exitCode = 0;
       return;
     }
@@ -174,7 +188,7 @@ async function main(): Promise<void> {
       return;
     }
     case "repl": {
-      process.exitCode = await runRepl({ domain, mode });
+      process.exitCode = await runRepl({ domain, mode, version: readVersion() });
       return;
     }
     default: {

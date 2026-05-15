@@ -2,11 +2,15 @@
   "name": "sentinelai",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "sentinelai": "./bin/sentinelai.mjs"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cli": "tsx bin/sentinelai.ts"
   },
   "dependencies": {
     "@e2b/code-interpreter": "^2.4.2",
