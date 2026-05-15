@@ -14,7 +14,7 @@ function finalAnswer(state: TrialState): string {
 }
 
 /** Minimal, dependency-free markdown → React for clean answer rendering. */
-function renderMarkdown(src: string): ReactNode[] {
+export function renderMarkdown(src: string): ReactNode[] {
   const out: ReactNode[] = [];
   const segments = src.split(/```/g);
 

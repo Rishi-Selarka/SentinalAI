@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, Settings as SettingsIcon } from "lucide-react";
 import { AetherLogo } from "./AetherLogo";
 import { useTrialStream } from "@/hooks/useTrialStream";
+import { saveTrial } from "@/lib/history";
 import { PromptBar } from "./PromptBar";
 import { SandboxTerminal } from "./SandboxTerminal";
 import { TrialSummary } from "./TrialSummary";
 import { RepoAnalyzer } from "./RepoAnalyzer";
+import { HistoryView } from "./HistoryView";
 import { easeOutExpo } from "@/lib/motion";
 import type { Domain } from "@/lib/openrouter";
 import type { SidebarView } from "./Sidebar";
@@ -26,6 +27,13 @@ export function Courtroom({
 
   const running = state.status === "streaming";
   const firstName = userName.split(" ")[0];
+
+  // Persist every completed trial to history (saveTrial dedupes internally).
+  useEffect(() => {
+    if (state.status === "done" && state.finalLabel) {
+      saveTrial(state);
+    }
+  }, [state]);
 
   return (
     <motion.div
@@ -79,8 +87,7 @@ export function Courtroom({
 
         {view === "repo" && <RepoAnalyzer />}
 
-        {view === "history" && <ComingSoon icon={Clock} label="History" />}
-        {view === "settings" && <ComingSoon icon={SettingsIcon} label="Settings" />}
+        {view === "history" && <HistoryView />}
       </div>
     </motion.div>
   );
@@ -153,21 +160,3 @@ function HomeView({
   );
 }
 
-function ComingSoon({ icon: Icon, label }: { icon: typeof Clock; label: string }) {
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: easeOutExpo }}
-      className="rounded-2xl border border-cream-300 bg-white p-10 flex flex-col items-center justify-center gap-3 text-center"
-    >
-      <div className="w-12 h-12 rounded-xl bg-cream-200 flex items-center justify-center">
-        <Icon className="w-6 h-6 text-surface-500" />
-      </div>
-      <h2 className="text-xl font-medium text-surface">{label}</h2>
-      <p className="text-sm text-surface-500 max-w-md">
-        Coming soon. This area is reserved for upcoming functionality.
-      </p>
-    </motion.section>
-  );
-}
