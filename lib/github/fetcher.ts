@@ -60,7 +60,10 @@ export type RepoSummary = {
 
 const GITHUB_API = "https://api.github.com";
 const MAX_FILE_BYTES = 50 * 1024;
-const MAX_FILES = 5;
+// Analyze the whole repo. This is only a safety ceiling so a pathological
+// monorepo can't spawn thousands of trials; files are interest-sorted so
+// the most important ones are reviewed first if the time budget runs out.
+const MAX_FILES = 300;
 
 export class FetcherError extends Error {
   constructor(message: string, public status: number = 400) {
