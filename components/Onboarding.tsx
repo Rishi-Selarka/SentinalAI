@@ -21,29 +21,21 @@ export function Onboarding({ onContinue }: { onContinue: (name: string) => void 
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: easeOutExpo }}
     >
-      {/* ── Hero image (left half) — replace /public/onboarding.jpg with your image ── */}
+      {/* ── Left panel: just the app name ── */}
       <motion.div
-        className="hidden lg:block w-1/2 relative"
+        className="hidden lg:flex w-1/2 items-center justify-center bg-surface"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1.2, ease: easeOutExpo }}
       >
-        {/* When the user supplies an image, drop it at /public/onboarding.jpg
-            and uncomment the <img> below. The gradient placeholder stays
-            visible until then so the layout never breaks. */}
-        {/* <img
-          src="/onboarding.jpg"
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-        /> */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(circle at 30% 25%, rgba(218, 107, 43, 0.20), transparent 55%), radial-gradient(circle at 75% 80%, rgba(9, 9, 11, 0.14), transparent 55%), linear-gradient(180deg, #F5F3E4 0%, #ECE9D8 100%)",
-          }}
-        />
-        <div className="absolute inset-0 splash-mask pointer-events-none" />
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl bg-cream flex items-center justify-center">
+            <Scale className="w-7 h-7 text-surface" />
+          </div>
+          <span className="text-cream text-3xl font-light tracking-wider">
+            SentinelAI
+          </span>
+        </div>
       </motion.div>
 
       {/* ── Form area ── */}

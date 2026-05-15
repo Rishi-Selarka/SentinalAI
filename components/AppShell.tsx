@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { Onboarding } from "./Onboarding";
 import { Courtroom } from "./Courtroom";
+import { Sidebar, type SidebarView } from "./Sidebar";
 
 const NAME_KEY = "sentinelai.userName";
 
 export function AppShell() {
-  // Render onboarding on first paint; swap to Courtroom after we read localStorage.
   const [name, setName] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [view, setView] = useState<SidebarView>("home");
 
   useEffect(() => {
     try {
@@ -21,21 +22,26 @@ export function AppShell() {
     setHydrated(true);
   }, []);
 
-  // Until hydrated we don't know the user's name yet, so show onboarding.
-  // After hydration, if we recovered a name, swap to the Courtroom.
   if (hydrated && name) {
     return (
-      <Courtroom
-        userName={name}
-        onResetUser={() => {
-          try {
-            localStorage.removeItem(NAME_KEY);
-          } catch {
-            /* ignore */
-          }
-          setName(null);
-        }}
-      />
+      <div className="flex min-h-screen bg-cream">
+        <Sidebar
+          userName={name}
+          active={view}
+          onSelect={setView}
+          onResetUser={() => {
+            try {
+              localStorage.removeItem(NAME_KEY);
+            } catch {
+              /* ignore */
+            }
+            setName(null);
+          }}
+        />
+        <main className="flex-1 min-w-0">
+          <Courtroom userName={name} view={view} />
+        </main>
+      </div>
     );
   }
 
