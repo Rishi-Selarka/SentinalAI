@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Scale, Clock, Settings as SettingsIcon } from "lucide-react";
+import { Clock, Settings as SettingsIcon } from "lucide-react";
+import { AetherLogo } from "./AetherLogo";
 import { useTrialStream } from "@/hooks/useTrialStream";
 import { PromptBar } from "./PromptBar";
 import { JurorCard } from "./JurorCard";
@@ -42,12 +44,12 @@ export function Courtroom({
         {/* Top header — app name on the main screen */}
         <header className="flex items-center justify-between gap-4 pb-5 border-b border-cream-300">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center">
-              <Scale className="w-5 h-5 text-cream" />
+            <div className="w-10 h-10 rounded-lg bg-white border border-cream-300 flex items-center justify-center shadow-[0_8px_24px_-10px_rgba(79,150,204,0.45)]">
+              <AetherLogo className="w-5 h-5 text-suits-600" />
             </div>
             <div>
               <h1 className="text-2xl font-semibold text-surface tracking-tight leading-none">
-                SentinelAI
+                Sentinel<span className="text-suits-600">AI</span>
               </h1>
               <div className="text-[11px] uppercase tracking-[0.25em] text-surface-500 mt-1.5">
                 The AI Hallucination Juror
@@ -106,6 +108,15 @@ export function Courtroom({
         {view === "history" && <ComingSoon icon={Clock} label="History" />}
         {view === "settings" && <ComingSoon icon={SettingsIcon} label="Settings" />}
       </div>
+
+      {/* Floating shortcut to the repo analyzer — only rendered for signed-in
+          users (since this component is only mounted after onboarding). */}
+      <Link
+        href="/repo"
+        className="fixed bottom-6 right-6 z-50 px-4 py-2 rounded-full bg-surface text-cream text-xs font-medium shadow-lg hover:shadow-xl hover:bg-surface-200 transition"
+      >
+        Analyze GitHub repo →
+      </Link>
     </motion.div>
   );
 }

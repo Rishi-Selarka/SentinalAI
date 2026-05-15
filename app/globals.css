@@ -1,18 +1,22 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Brand palette (Claude orange — ported from Suits) ── */
-  --color-suits-50: #fef6ee;
-  --color-suits-100: #fdeaD7;
-  --color-suits-200: #f9d0ae;
-  --color-suits-300: #f5ad7a;
-  --color-suits-400: #e07733;
-  --color-suits-500: #da6b2b;
-  --color-suits-600: #c85a1e;
-  --color-suits-700: #a6451a;
-  --color-suits-800: #85381c;
-  --color-suits-900: #6c3019;
-  --color-suits-950: #3a160b;
+  /* ── Brand palette (powder blue — replaces Claude orange) ──
+     Variable names kept as `--color-suits-*` so no component needs
+     to change; only the hex values are swapped. Anchor shade is
+     ~#c2dff4 (a true powder blue, close to CSS "powderblue" #B0E0E6),
+     with darker steps that stay legible on cream. */
+  --color-suits-50: #f4faff;
+  --color-suits-100: #e3f1fc;
+  --color-suits-200: #c2dff4;
+  --color-suits-300: #97c4e8;
+  --color-suits-400: #6caedb;
+  --color-suits-500: #4f96cc;
+  --color-suits-600: #3a7eb6;
+  --color-suits-700: #2d6594;
+  --color-suits-800: #285478;
+  --color-suits-900: #234560;
+  --color-suits-950: #142537;
 
   /* ── Dark surface (sidebar, dark form cards, onboarding accent) ── */
   --color-surface: #09090b;
@@ -28,12 +32,15 @@
   --color-surface-900: #e4e4e7;
   --color-surface-950: #fafafa;
 
-  /* ── Cream palette (main app background) ── */
-  --color-cream: #FAF9EA;
-  --color-cream-100: #F5F3E4;
-  --color-cream-200: #ECE9D8;
-  --color-cream-300: #DDD8C4;
-  --color-cream-400: #C4BEA7;
+  /* ── App background palette (very light powder blue — replaces cream) ──
+     Kept the `--color-cream-*` variable names so every component continues
+     to work without edits. The values are now a professional, very light
+     powder-blue scale tuned to pair with the suits-* accent. */
+  --color-cream: #F1F6FB;
+  --color-cream-100: #E6EFF7;
+  --color-cream-200: #D4E2F0;
+  --color-cream-300: #B6CCDF;
+  --color-cream-400: #8FAAC2;
 
   /* ── Risk colors ── */
   --color-risk-low: #22c55e;
@@ -67,7 +74,7 @@
   }
 
   ::selection {
-    background: rgba(218, 107, 43, 0.3);
+    background: rgba(79, 150, 204, 0.3);
     color: white;
   }
 }
@@ -90,26 +97,70 @@
   }
 
   .glass-cream {
-    background: rgba(250, 249, 234, 0.7);
+    background: rgba(241, 246, 251, 0.7);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(221, 216, 196, 0.5);
+    border: 1px solid rgba(182, 204, 223, 0.5);
   }
 
-  .glow-sm { box-shadow: 0 0 20px rgba(218, 107, 43, 0.15); }
-  .glow-md { box-shadow: 0 0 40px rgba(218, 107, 43, 0.20); }
-  .glow-gold { box-shadow: 0 0 30px rgba(201, 169, 110, 0.15); }
+  .glow-sm { box-shadow: 0 0 20px rgba(79, 150, 204, 0.18); }
+  .glow-md { box-shadow: 0 0 40px rgba(79, 150, 204, 0.22); }
+  .glow-gold { box-shadow: 0 0 30px rgba(110, 165, 201, 0.18); }
 }
 
-/* Splash mask — left image fades into cream on the right edge */
+/* Splash mask — left image fades into the app background on the right edge */
 .splash-mask {
   background: linear-gradient(
     to right,
     transparent 0%,
     transparent 50%,
-    rgba(250, 249, 234, 0.4) 70%,
-    rgba(250, 249, 234, 0.85) 85%,
-    rgb(250, 249, 234) 100%
+    rgba(241, 246, 251, 0.4) 70%,
+    rgba(241, 246, 251, 0.85) 85%,
+    rgb(241, 246, 251) 100%
   );
+}
+
+/* Onboarding heatmap fade — dissolves the right edge into the form area
+   so the contribution grid blends seamlessly into the powder-blue bg.
+   The wider, multi-stop gradient creates a soft frosted dissolve rather
+   than a hard cutoff. */
+.heatmap-fade {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black 35%,
+    rgba(0, 0, 0, 0.88) 55%,
+    rgba(0, 0, 0, 0.55) 72%,
+    rgba(0, 0, 0, 0.22) 86%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black 35%,
+    rgba(0, 0, 0, 0.88) 55%,
+    rgba(0, 0, 0, 0.55) 72%,
+    rgba(0, 0, 0, 0.22) 86%,
+    transparent 100%
+  );
+}
+
+/* A frosted veil that overlays the right edge of the heatmap panel and
+   bleeds across the seam between the two halves, giving the grid that
+   "fading into glass" feel rather than a hard edge. */
+.heatmap-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 50%,
+    rgba(241, 246, 251, 0.25) 70%,
+    rgba(241, 246, 251, 0.65) 85%,
+    rgb(241, 246, 251) 100%
+  );
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 @keyframes typing-dot {

@@ -7,8 +7,8 @@ import {
   History,
   Settings,
   LogOut,
-  Scale,
 } from "lucide-react";
+import { AetherLogo } from "./AetherLogo";
 
 export type SidebarView = "home" | "jurors" | "examples" | "history" | "settings";
 
@@ -37,11 +37,11 @@ export function Sidebar({
     <aside className="w-64 shrink-0 bg-surface text-cream flex flex-col h-screen sticky top-0 border-r border-surface-300">
       {/* Brand mark — small, sidebar-only */}
       <div className="px-5 py-5 flex items-center gap-2.5 border-b border-surface-300">
-        <div className="w-8 h-8 rounded-md bg-cream flex items-center justify-center">
-          <Scale className="w-4 h-4 text-surface" />
+        <div className="w-8 h-8 rounded-md bg-white flex items-center justify-center">
+          <AetherLogo className="w-4 h-4 text-suits-600" />
         </div>
         <span className="text-cream text-sm font-semibold tracking-widest uppercase">
-          SentinelAI
+          Sentinel<span className="text-suits-400">AI</span>
         </span>
       </div>
 

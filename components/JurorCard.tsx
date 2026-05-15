@@ -65,8 +65,8 @@ function ConfidenceRing({ value, tone }: { value: number; tone: ReturnType<typeo
   const clamped = Math.max(0, Math.min(1, value));
   const dash = Math.round(clamped * 100);
   const colorMap: Record<ReturnType<typeof verdictTone>, string> = {
-    idle: "#C4BEA7",
-    running: "#da6b2b",
+    idle: "#B6CCDF",
+    running: "#4f96cc",
     pass: "#22c55e",
     fail: "#ef4444",
     uncertain: "#f59e0b",
