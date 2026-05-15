@@ -12,7 +12,6 @@ import {
   parseDomain,
 } from "@/lib/cli/commands";
 import { runRepl } from "@/lib/cli/repl";
-import { printBanner } from "@/lib/cli/welcome";
 import type { RenderMode } from "@/lib/cli/render";
 
 function readVersion(): string {
@@ -114,8 +113,13 @@ async function main(): Promise<void> {
 
   switch (command) {
     case undefined: {
-      printBanner({ cwd: process.cwd(), version: readVersion() });
-      process.exitCode = 0;
+      // Bare `sentinelai` drops into the interactive prompt (like `node`
+      // or `python` with no args). The REPL prints the banner itself.
+      process.exitCode = await runRepl({
+        domain,
+        mode,
+        version: readVersion(),
+      });
       return;
     }
     case "trial": {

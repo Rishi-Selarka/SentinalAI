@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { colorize } from "./ansi";
+import { colorize, type Color } from "./ansi";
 
 function abbreviateHome(p: string): string {
   const home = homedir();
@@ -15,57 +15,92 @@ const COMMANDS: { cmd: string; args: string; desc: string }[] = [
   { cmd: "/doctor", args: "", desc: "verify API keys" },
 ];
 
-const JURY_LINES = [
-  "generator·claude-sonnet  critic·gpt-4o  facts·perplexity",
-  "code·deepseek+e2b  math·deepseek  standards·claude-haiku",
+const BOX_W = 64; // total visible width
+const INNER = BOX_W - 4; // "│ " + inner + " │"
+
+type Seg = { t: string; c?: Color };
+
+function boxLine(segs: Seg[]): string {
+  const plainLen = segs.reduce((n, s) => n + s.t.length, 0);
+  const pad = plainLen < INNER ? " ".repeat(INNER - plainLen) : "";
+  const body = segs.map((s) => (s.c ? colorize(s.t, s.c) : s.t)).join("") + pad;
+  const bar = colorize("│", "powder");
+  return `${bar} ${body} ${bar}`;
+}
+
+function boxTop(): string {
+  return colorize("╭" + "─".repeat(BOX_W - 2) + "╮", "powder");
+}
+function boxBottom(): string {
+  return colorize("╰" + "─".repeat(BOX_W - 2) + "╯", "powder");
+}
+function boxRule(): string {
+  const bar = colorize("│", "powder");
+  return `${bar} ${colorize("·".repeat(INNER), "powderDim")} ${bar}`;
+}
+
+// Stacked-block emblem (a stylized shield/gavel mark) — renders in any
+// monospace font, no emoji width surprises.
+const EMBLEM = [
+  "  ▟██▙  ",
+  " ▟████▙ ",
+  " ▜████▛ ",
+  "  ▜██▛  ",
 ];
 
-const WIDTH = 64;
+const WORDMARK = "S E N T I N E L · A I";
 
 export function renderBanner(opts: { cwd: string; version: string }): string {
   const lines: string[] = [];
-  const r = colorize("─".repeat(WIDTH), "powder");
 
   lines.push("");
-  lines.push(r);
-  lines.push(
-    "  " +
-      colorize("◆", "powder") +
-      "  " +
-      colorize("SentinelAI", "powder") +
-      "  " +
-      colorize(`v${opts.version}`, "powderDim")
-  );
-  lines.push("     " + colorize("The AI Hallucination Juror", "muted"));
-  lines.push(
-    "     " + colorize("7-agent jury · OpenRouter + E2B sandbox", "muted")
-  );
-  lines.push("     " + colorize(abbreviateHome(opts.cwd), "powderDim"));
-  lines.push(r);
-  lines.push("");
-  lines.push("  " + colorize("commands", "muted"));
+  lines.push(boxTop());
+  lines.push(boxLine([{ t: "" }]));
+
+  // Emblem (left) beside the wordmark + meta (right), four rows tall.
+  const rightCol: Seg[][] = [
+    [{ t: WORDMARK, c: "powder" }],
+    [{ t: "The AI Hallucination Juror", c: "muted" }],
+    [{ t: "7-agent jury · OpenRouter + E2B sandbox", c: "muted" }],
+    [{ t: `v${opts.version}`, c: "powderDim" }],
+  ];
+  for (let i = 0; i < EMBLEM.length; i++) {
+    lines.push(
+      boxLine([
+        { t: " " },
+        { t: EMBLEM[i], c: "powder" },
+        { t: "  " },
+        ...rightCol[i],
+      ])
+    );
+  }
+
+  lines.push(boxLine([{ t: "" }]));
+  lines.push(boxRule());
+  lines.push(boxLine([{ t: "" }]));
+  lines.push(boxLine([{ t: "commands", c: "muted" }]));
   for (const { cmd, args, desc } of COMMANDS) {
-    const left = `${cmd} ${args}`.padEnd(26);
-    const colored =
-      "    " +
-      colorize(cmd, "powder") +
-      colorize(left.slice(cmd.length), "muted") +
-      colorize(desc, "text");
-    lines.push(colored);
+    const left = `${cmd} ${args}`;
+    const leftPad = left.padEnd(24).slice(left.length);
+    lines.push(
+      boxLine([
+        { t: "  " },
+        { t: cmd, c: "powder" },
+        { t: left.slice(cmd.length) + leftPad, c: "muted" },
+        { t: desc, c: "text" },
+      ])
+    );
   }
-  lines.push("");
-  lines.push("  " + colorize("jury", "muted"));
-  for (const jl of JURY_LINES) {
-    lines.push("    " + colorize(jl, "powderDim"));
-  }
-  lines.push(r);
+  lines.push(boxLine([{ t: "" }]));
+  lines.push(boxBottom());
   lines.push(
     "  " +
-      colorize("tip:", "muted") +
-      " " +
+      colorize("tip", "muted") +
+      "  " +
       colorize("sentinelai review src/", "powder") +
-      colorize("  reviews a whole directory and exits non-zero on bugs", "muted")
+      colorize("  scans a directory and exits non-zero on bugs", "muted")
   );
+  lines.push("  " + colorize(abbreviateHome(opts.cwd), "powderDim"));
   lines.push("");
 
   return lines.join("\n");
